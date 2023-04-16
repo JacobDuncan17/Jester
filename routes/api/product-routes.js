@@ -30,25 +30,23 @@ router.get('/:id', async (req, res) => {
     res.status(200).json(productData);
 });
 
-router.post('/', (req, res) => {
-  Product.create(req.body)
-    .then((product) => {
-      if (req.body.tagIds.length) {
-        const productTagIdArr = req.body.tagIds.map((tag_id) => {
-          return {
-            product_id: product.id,
-            tag_id,
-          };
-        });
-        return ProductTag.bulkCreate(productTagIdArr);
-      }
-      res.status(200).json(product);
-    })
-    .then((productTagIds) => res.status(200).json(productTagIds))
-    .catch((err) => {
-      console.log(err);
-      res.status(400).json(err);
-    });
+router.post('/', async (req, res) => {
+  try {
+    const product = await Product.create(req.body);
+
+    if (req.body.tagIds && req.body.tagIds.length > 0) {
+      const productTagIdArr = req.body.tagIds.map((tag_id) => ({
+        product_id: product.id,
+        tag_id,
+      }));
+      await ProductTag.bulkCreate(productTagIdArr);
+    }
+
+    res.status(201).json(product);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to create product' });
+  }
 });
 
 router.put('/:id', (req, res) => {
@@ -59,6 +57,7 @@ router.put('/:id', (req, res) => {
     },
   })
     .then((product) => {
+      
       return ProductTag.findAll({ where: { product_id: req.params.id } });
     })
     .then((productTags) => {
@@ -78,6 +77,7 @@ router.put('/:id', (req, res) => {
         .filter(({ tag_id }) => !req.body.tagIds.includes(tag_id))
         .map(({ id }) => id);
 
+      
       return Promise.all([
         ProductTag.destroy({ where: { id: productTagsToRemove } }),
         ProductTag.bulkCreate(newProductTags),
@@ -85,6 +85,7 @@ router.put('/:id', (req, res) => {
     })
     .then((updatedProductTags) => res.json(updatedProductTags))
     .catch((err) => {
+      
       res.status(400).json(err);
     });
 });
